@@ -1,0 +1,22 @@
+[
+  {
+    "rule_id": "100201",
+    "rule_description": "SQL Injection attempt",
+    "severity": 12,
+    "source_ip": "10.0.0.15",
+    "agent_name": "web-server-01",
+    "agent_id": "002",
+    "full_log": "GET /index.php?id=1' OR '1'='1' HTTP/1.1",
+    "mitre_techniques": ["T1190"]
+  },
+  {
+    "rule_id": "5712",
+    "rule_description": "SSH Brute Force",
+    "severity": 10,
+    "source_ip": "192.168.1.100",
+    "agent_name": "db-server-01",
+    "agent_id": "003",
+    "full_log": "Failed password for root from 192.168.1.100 port 22",
+    "mitre_techniques": ["T1110"]
+  }
+]
