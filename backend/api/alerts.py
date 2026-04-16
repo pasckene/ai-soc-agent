@@ -13,3 +13,20 @@ async def get_alerts(db: AsyncSession = Depends(get_db)):
     alerts = result.scalars().all()
     return alerts
 
+from pydantic import BaseModel
+
+class RemediationRequest(BaseModel):
+    action: str
+    target: str
+    alert_id: str
+
+@router.post("/remediate")
+async def execute_remediation(req: RemediationRequest):
+    # Simulate SOAR playbook execution
+    return {
+        "status": "success",
+        "message": f"Successfully executed '{req.action}' playbook on target: {req.target}",
+        "action": req.action,
+        "target": req.target,
+        "alert_id": req.alert_id
+    }

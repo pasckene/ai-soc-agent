@@ -28,10 +28,21 @@ const AttackGraph = ({ alerts }) => {
     return () => observer.disconnect();
   }, []);
 
+  const [timelineProgress, setTimelineProgress] = useState(100);
+
   const data = useMemo(() => {
     const nodes = [];
     const links = [];
     
+    if (!alerts || alerts.length === 0) return { nodes, links };
+
+    // Sort alerts chronologically (oldest first) so we can playback
+    const sortedAlerts = [...alerts].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    
+    // Calculate how many alerts to show based on slider progress (0-100%)
+    const visibleCount = Math.max(1, Math.floor((timelineProgress / 100) * sortedAlerts.length));
+    const timelineAlerts = sortedAlerts.slice(0, visibleCount);
+
     const ipMap = new Map();
     const ipTechs = new Map();
     const techMap = new Map();
@@ -49,8 +60,7 @@ const AttackGraph = ({ alerts }) => {
       return '#10b981'; // Green (Low)
     };
 
-    // Process chronically mapping techniques
-    [...alerts].reverse().forEach((alert) => {
+    timelineAlerts.forEach((alert) => {
       const ip = alert.source_ip;
       if (!ip) return;
       
@@ -101,7 +111,7 @@ const AttackGraph = ({ alerts }) => {
     });
 
     return { nodes, links };
-  }, [alerts]);
+  }, [alerts, timelineProgress]);
 
   const fgRef = useRef();
 
@@ -120,7 +130,7 @@ const AttackGraph = ({ alerts }) => {
   return (
     <div
       className="card graph-card"
-      style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 400 }}
+      style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 600 }}
     >
       <div className="graph-label">
         <Network size={18} color="var(--primary)" />
@@ -129,14 +139,14 @@ const AttackGraph = ({ alerts }) => {
 
       <div
         ref={containerRef}
-        style={{ position: 'absolute', inset: 0 }}
+        style={{ position: 'absolute', inset: 0, bottom: '50px' }}
       >
         <ForceGraph2D
           ref={fgRef}
           graphData={data}
           backgroundColor="transparent"
           width={dims.width}
-          height={dims.height}
+          height={dims.height - 50}
           linkColor={() => 'rgba(255,255,255,0.15)'}
           linkWidth={1.5}
           linkDirectionalArrowLength={4}
@@ -167,6 +177,34 @@ const AttackGraph = ({ alerts }) => {
             ctx.fillText(label, node.x, node.y + radius + 3);
           }}
         />
+      </div>
+
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        height: '50px',
+        background: 'rgba(0,0,0,0.3)',
+        borderTop: '1px solid var(--border)',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 20px',
+        gap: '16px'
+      }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+          Attack Rewind
+        </div>
+        <input 
+          type="range" 
+          className="slider"
+          min="1" 
+          max="100" 
+          value={timelineProgress}
+          onChange={(e) => setTimelineProgress(Number(e.target.value))}
+          style={{ flex: 1 }}
+        />
+        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--primary)', width: '40px', textAlign: 'right' }}>
+          {timelineProgress}%
+        </div>
       </div>
     </div>
   );
