@@ -89,7 +89,8 @@ const AIDashboard = () => {
     };
     fetchHistory();
 
-    const ws = new WebSocket(`${WS_BASE_URL}/ws/alerts`);
+    const token = localStorage.getItem('soc_token');
+    const ws = new WebSocket(`${WS_BASE_URL}/ws/alerts${token ? `?token=${token}` : ''}`);
     ws.onmessage = (event) => {
       const newAlert = JSON.parse(event.data);
       setAlerts((prev) => {

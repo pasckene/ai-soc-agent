@@ -11,6 +11,7 @@ import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from backend.api import chat, alerts, auth
+from backend.auth.jwt_handler import verify_token
 from backend.core.wazuh_ingest import WazuhMockIngest
 from backend.models.alert_model import SOCAlert
 from backend.database.db import init_db, save_alert
@@ -76,7 +77,12 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 @app.websocket("/ws/alerts")
-async def websocket_alerts(websocket: WebSocket):
+async def websocket_alerts(websocket: WebSocket, token: str = None):
+    # Verify token before opening connection
+    if not token or not verify_token(token):
+        await websocket.close(code=1008) # Policy Violation
+        return
+
     await manager.connect(websocket)
     try:
         while True:
