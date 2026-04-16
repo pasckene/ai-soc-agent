@@ -10,6 +10,7 @@ class SOCAlert(BaseModel):
     severity: int  # 0-15 (Wazuh style)
     source_ip: str
     dest_ip: Optional[str] = None
+    user_name: Optional[str] = None
     agent_name: str
     agent_id: str
     full_log: str

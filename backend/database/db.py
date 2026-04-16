@@ -32,6 +32,7 @@ class DBAlert(Base):
     severity: Mapped[int] = mapped_column(Integer)
     source_ip: Mapped[str] = mapped_column(String)
     dest_ip: Mapped[str] = mapped_column(String, nullable=True)
+    user_name: Mapped[str] = mapped_column(String, nullable=True)
     agent_name: Mapped[str] = mapped_column(String)
     agent_id: Mapped[str] = mapped_column(String)
     full_log: Mapped[str] = mapped_column(Text)
@@ -60,6 +61,7 @@ async def save_alert(alert_data: SOCAlert):
                 severity=alert_data.severity,
                 source_ip=alert_data.source_ip,
                 dest_ip=alert_data.dest_ip,
+                user_name=alert_data.user_name,
                 agent_name=alert_data.agent_name,
                 agent_id=alert_data.agent_id,
                 full_log=alert_data.full_log,

@@ -43,6 +43,8 @@ const AttackGraph = ({ alerts }) => {
     const visibleCount = Math.max(1, Math.floor((timelineProgress / 100) * sortedAlerts.length));
     const timelineAlerts = sortedAlerts.slice(0, visibleCount);
 
+    const userMap = new Map();
+    const userIPs = new Map();
     const ipMap = new Map();
     const ipTechs = new Map();
     const techMap = new Map();
@@ -61,11 +63,22 @@ const AttackGraph = ({ alerts }) => {
     };
 
     timelineAlerts.forEach((alert) => {
+      const user = alert.user_name || "Unknown User";
       const ip = alert.source_ip;
       if (!ip) return;
       
       const sev = alert.severity || 1;
 
+      // Map Users
+      if (!userMap.has(user)) {
+        userMap.set(user, sev);
+        userIPs.set(user, new Set());
+      } else if (sev > userMap.get(user)) {
+        userMap.set(user, sev);
+      }
+      userIPs.get(user).add(ip);
+
+      // Map IPs
       if (!ipMap.has(ip)) {
         ipMap.set(ip, sev);
         ipTechs.set(ip, []);
@@ -73,6 +86,7 @@ const AttackGraph = ({ alerts }) => {
         ipMap.set(ip, sev);
       }
 
+      // Map Techs
       const techs = ipTechs.get(ip);
       (alert.mitre_techniques || []).forEach(t => {
         if (!techs.includes(t)) techs.push(t);
@@ -82,9 +96,25 @@ const AttackGraph = ({ alerts }) => {
       });
     });
 
+    // Create User nodes and links to IPs
+    userMap.forEach((maxSev, user) => {
+      const userNodeId = `User: ${user}`;
+      nodes.push({ id: userNodeId, group: 'user', val: 10, color: '#a855f7' }); // Smaller val
+
+      const ips = userIPs.get(user);
+      ips.forEach(ip => {
+        const ipNodeId = `IP: ${ip}`;
+        if (!links.find(l => l.source === userNodeId && l.target === ipNodeId)) {
+          links.push({ source: userNodeId, target: ipNodeId });
+        }
+      });
+    });
+
     ipMap.forEach((maxSev, ip) => {
       const ipNodeId = `IP: ${ip}`;
-      nodes.push({ id: ipNodeId, group: 'ip', val: 12, color: getSevColor(maxSev) });
+      if (!nodes.find(n => n.id === ipNodeId)) {
+        nodes.push({ id: ipNodeId, group: 'ip', val: 7, color: getSevColor(maxSev) }); // Smaller val
+      }
 
       const techs = ipTechs.get(ip);
       let prevNode = ipNodeId;
@@ -97,7 +127,7 @@ const AttackGraph = ({ alerts }) => {
             nodes.push({ 
                 id: techId, 
                 group: 'tech', 
-                val: 16, 
+                val: 8, // Smaller val
                 color: getSevColor(techMap.get(t)) 
             });
          }
@@ -120,9 +150,9 @@ const AttackGraph = ({ alerts }) => {
     if (!fgRef.current) return;
     
     // Increase repulsion between nodes
-    fgRef.current.d3Force('charge').strength(-400);
+    fgRef.current.d3Force('charge').strength(-300);
     // Increase the distance of links to spread things out
-    fgRef.current.d3Force('link').distance(100);
+    fgRef.current.d3Force('link').distance(60);
     // Force the engine to re-run with new parameters
     fgRef.current.d3ReheatSimulation();
   }, [data]);
@@ -154,7 +184,7 @@ const AttackGraph = ({ alerts }) => {
           cooldownTicks={150}
           d3AlphaDecay={0.01}
           nodeCanvasObject={(node, ctx, globalScale) => {
-            const radius = node.val ? Math.sqrt(node.val) * 1.5 : 5;
+            const radius = node.val ? Math.sqrt(node.val) * 1.2 : 3;
             
             ctx.beginPath();
             ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
@@ -162,7 +192,7 @@ const AttackGraph = ({ alerts }) => {
             ctx.fill();
 
             // Label Formatting
-            const fontSize = Math.max(10, 14 / globalScale); // Slightly larger font
+            const fontSize = Math.max(8, 12 / globalScale); // Slightly smaller font
             ctx.font = `600 ${fontSize}px Inter, sans-serif`;
             ctx.textAlign = 'center';
             ctx.textBaseline = 'top';
@@ -171,10 +201,10 @@ const AttackGraph = ({ alerts }) => {
             const label = node.id;
             const textWidth = ctx.measureText(label).width;
             ctx.fillStyle = 'rgba(10, 10, 12, 0.85)';
-            ctx.fillRect(node.x - textWidth / 2 - 4, node.y + radius + 1, textWidth + 8, fontSize + 4);
+            ctx.fillRect(node.x - textWidth / 2 - 2, node.y + radius + 1, textWidth + 4, fontSize + 2);
 
             ctx.fillStyle = node.color || 'rgba(226, 232, 240, 0.9)';
-            ctx.fillText(label, node.x, node.y + radius + 3);
+            ctx.fillText(label, node.x, node.y + radius + 2);
           }}
         />
       </div>

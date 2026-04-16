@@ -106,6 +106,10 @@ const AlertsListPage = ({ alerts }) => {
                     <span className="detail-value">{alert.agent_name}</span>
                   </div>
                   <div className="detail-item">
+                    <span className="detail-label">User Account</span>
+                    <span className="detail-value">{alert.user_name || 'N/A'}</span>
+                  </div>
+                  <div className="detail-item">
                     <span className="detail-label">Tech Group</span>
                     <span className="detail-value">{alert.mitre_techniques?.join(', ') || 'N/A'}</span>
                   </div>

@@ -26,6 +26,7 @@ class WazuhMockIngest:
                 await asyncio.sleep(random.randint(10, 30))
                 
                 # Create a mock alert
+                users = ["admin", "root", "zyra", "guest", "svc_account", "it_admin"]
                 alert = SOCAlert(
                     id=str(uuid.uuid4()),
                     rule_id=str(random.randint(100000, 100500)),
@@ -38,6 +39,7 @@ class WazuhMockIngest:
                     ]),
                     severity=random.randint(3, 15),
                     source_ip=f"192.168.1.{random.randint(2, 254)}",
+                    user_name=random.choice(users),
                     agent_name="kali-linux-agent",
                     agent_id="001",
                     full_log="Mock log data for testing AI analysis.",

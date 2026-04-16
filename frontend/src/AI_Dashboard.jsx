@@ -94,7 +94,7 @@ const AIDashboard = () => {
       const newAlert = JSON.parse(event.data);
       setAlerts((prev) => {
         if (prev.find((a) => a.id === newAlert.id)) return prev;
-        return [newAlert, ...prev].slice(0, 20);
+        return [newAlert, ...prev].slice(0, 80);
       });
     };
     return () => ws.close();
