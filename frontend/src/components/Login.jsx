@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import { Lock, User, ShieldCheck, Loader2 } from 'lucide-react';
+import { Lock, User, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
+import apiClient, { parseError } from '../api/apiClient';
 
 const Login = ({ onLoginSuccess }) => {
   const [isRegistering, setIsRegistering] = useState(false);
@@ -17,7 +17,7 @@ const Login = ({ onLoginSuccess }) => {
     const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
     
     try {
-      const response = await axios.post(`http://localhost:8000${endpoint}`, {
+      const response = await apiClient.post(endpoint, {
         username,
         password
       });
@@ -30,7 +30,9 @@ const Login = ({ onLoginSuccess }) => {
         onLoginSuccess();
       }
     } catch (err) {
-      setError(err.response?.data?.detail || 'An error occurred. Please try again.');
+      const detailedError = parseError(err);
+      setError(detailedError);
+      console.error("Authentication Failure:", err);
     } finally {
       setLoading(false);
     }
@@ -118,9 +120,18 @@ const Login = ({ onLoginSuccess }) => {
             <div style={{ 
               color: isRegistering && error.includes('successful') ? 'var(--success)' : 'var(--danger)', 
               fontSize: '0.85rem', 
-              textAlign: 'center' 
+              textAlign: 'center',
+              padding: '8px',
+              background: 'rgba(0,0,0,0.2)',
+              borderRadius: '6px',
+              border: '1px solid rgba(255,255,255,0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px'
             }}>
-              {error}
+              {!error.includes('successful') && <AlertCircle size={14} />}
+              <span>{error}</span>
             </div>
           )}
 

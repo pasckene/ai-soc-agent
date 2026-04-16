@@ -1,3 +1,12 @@
+import sys
+import os
+from pathlib import Path
+
+# Add project root to sys.path for absolute imports
+root_path = str(Path(__file__).parent.parent)
+if root_path not in sys.path:
+    sys.path.append(root_path)
+
 import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,7 +16,29 @@ from backend.models.alert_model import SOCAlert
 from backend.database.db import init_db, save_alert
 import json
 
-app = FastAPI(title="AI SOC Copilot API")
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic: Initialize DB and start simulation
+    await init_db()
+    ingest_engine.on_new_alert(alert_callback)
+    # Start the simulation background task
+    simulation_task = asyncio.create_task(ingest_engine.start_simulating())
+    
+    yield
+    
+    # Shutdown logic: Cancel the simulation task
+    simulation_task.cancel()
+    try:
+        await simulation_task
+    except asyncio.CancelledError:
+        pass
+
+app = FastAPI(
+    title="AI SOC Copilot API",
+    lifespan=lifespan
+)
 
 # CORS for React Frontend
 app.add_middleware(
@@ -63,12 +94,22 @@ async def alert_callback(alert: SOCAlert):
     await manager.broadcast(alert.model_dump_json())
 
 
-@app.on_event("startup")
-async def startup_event():
-    await init_db()
-    ingest_engine.on_new_alert(alert_callback)
-    asyncio.create_task(ingest_engine.start_simulating())
-
 @app.get("/")
 def read_root():
     return {"message": "AI SOC Copilot API is running"}
+
+
+def start():
+    """Entry point for the application script."""
+    import uvicorn
+    from backend.config import settings
+    uvicorn.run(
+        "backend.main:app",
+        host=settings.API_HOST,
+        port=settings.API_PORT,
+        reload=settings.DEBUG
+    )
+
+
+if __name__ == "__main__":
+    start()

@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy import String, Integer, DateTime, Text, JSON
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime
 from backend.config import settings
 from backend.models.alert_model import SOCAlert
@@ -48,22 +49,26 @@ async def get_db():
 
 async def save_alert(alert_data: SOCAlert):
     async with SessionLocal() as db:
-        db_alert = DBAlert(
-            id=alert_data.id,
-            timestamp=alert_data.timestamp,
-            rule_id=alert_data.rule_id,
-            rule_description=alert_data.rule_description,
-            severity=alert_data.severity,
-            source_ip=alert_data.source_ip,
-            dest_ip=alert_data.dest_ip,
-            agent_name=alert_data.agent_name,
-            agent_id=alert_data.agent_id,
-            full_log=alert_data.full_log,
-            ai_analysis=alert_data.ai_analysis,
-            ai_priority=alert_data.ai_priority,
-            ai_explanation=alert_data.ai_explanation,
-            recommended_actions=alert_data.recommended_actions,
-            mitre_techniques=alert_data.mitre_techniques
-        )
-        db.add(db_alert)
-        await db.commit()
+        try:
+            db_alert = DBAlert(
+                id=alert_data.id,
+                timestamp=alert_data.timestamp,
+                rule_id=alert_data.rule_id,
+                rule_description=alert_data.rule_description,
+                severity=alert_data.severity,
+                source_ip=alert_data.source_ip,
+                dest_ip=alert_data.dest_ip,
+                agent_name=alert_data.agent_name,
+                agent_id=alert_data.agent_id,
+                full_log=alert_data.full_log,
+                ai_analysis=alert_data.ai_analysis,
+                ai_priority=alert_data.ai_priority,
+                ai_explanation=alert_data.ai_explanation,
+                recommended_actions=alert_data.recommended_actions,
+                mitre_techniques=alert_data.mitre_techniques
+            )
+            db.add(db_alert)
+            await db.commit()
+        except IntegrityError as e:
+            await db.rollback()
+            print(f"Database Integrity Error: {e}")

@@ -6,12 +6,14 @@ class Settings(BaseSettings):
     GROQ_API_KEY: Optional[str] = None
     
     # AI Config
-    DEFAULT_MODEL: str = "gemini-1.5-flash"
-    GROQ_MODEL: str = "llama3-70b-8192"
+    DEFAULT_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
     
     # App Config
     DEBUG: bool = True
     DATABASE_URL: str = "sqlite:///./soc_copilot.db"
+    API_HOST: str = "0.0.0.0"
+    API_PORT: int = 8000
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

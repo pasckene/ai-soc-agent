@@ -1,30 +1,33 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, Shield, Terminal, Activity } from 'lucide-react';
+import { Activity } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import apiClient, { WS_BASE_URL } from '../api/apiClient';
+
+const getSeverityClass = (sev) => {
+  if (sev >= 12) return 'high';
+  if (sev >= 7) return 'medium';
+  return 'low';
+};
 
 const AlertFeed = () => {
   const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
-    // Fetch initial history
     const fetchHistory = async () => {
       try {
-        const response = await fetch('http://localhost:8000/alerts/');
-        const data = await response.json();
-        setAlerts(data);
+        const response = await apiClient.get('/alerts/');
+        setAlerts(response.data);
       } catch (err) {
-        console.error("Failed to fetch alert history", err);
+        console.error('Failed to fetch alert history', err);
       }
     };
     fetchHistory();
 
-    const ws = new WebSocket('ws://localhost:8000/ws/alerts');
-    
+    const ws = new WebSocket(`${WS_BASE_URL}/ws/alerts`);
     ws.onmessage = (event) => {
       const newAlert = JSON.parse(event.data);
       setAlerts((prev) => {
-        // Prevent duplicates if they arrive via WS while fetching history
-        if (prev.find(a => a.id === newAlert.id)) return prev;
+        if (prev.find((a) => a.id === newAlert.id)) return prev;
         return [newAlert, ...prev].slice(0, 50);
       });
     };
@@ -32,46 +35,53 @@ const AlertFeed = () => {
     return () => ws.close();
   }, []);
 
-
-  const getSeverityClass = (sev) => {
-    if (sev >= 12) return 'high';
-    if (sev >= 7) return 'medium';
-    return 'low';
-  };
-
   return (
-    <div className="card alert-feed">
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-        <Activity size={20} color="var(--accent)" />
-        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Live Alert Feed</h2>
+    <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+      <div className="alert-feed-header">
+        <Activity size={18} color="var(--accent)" />
+        <h2 className="section-title">Live Alert Feed</h2>
+        <span style={{
+          marginLeft: 'auto',
+          fontSize: '0.72rem',
+          background: 'var(--primary-dim)',
+          color: 'var(--primary)',
+          padding: '2px 8px',
+          borderRadius: '20px',
+          fontWeight: 600
+        }}>
+          {alerts.length}
+        </span>
       </div>
-      
-      <AnimatePresence initial={false}>
-        {alerts.map((alert) => (
-          <motion.div
-            key={alert.id}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, transition: { duration: 0.2 } }}
-            className={`alert-card ${getSeverityClass(alert.severity)}`}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{alert.source_ip}</span>
-              <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Level {alert.severity}</span>
+
+      <div className="alert-feed">
+        <AnimatePresence initial={false}>
+          {alerts.length === 0 && (
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '2rem 0' }}>
+              Waiting for alerts...
             </div>
-            <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '8px' }}>
-              {alert.rule_description}
-            </div>
-            <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-              {alert.mitre_techniques.map(t => (
-                <span key={t} style={{ fontSize: '0.7rem', background: 'var(--border)', padding: '2px 6px', borderRadius: '4px' }}>
-                  {t}
-                </span>
-              ))}
-            </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
+          )}
+          {alerts.map((alert) => (
+            <motion.div
+              key={alert.id}
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, transition: { duration: 0.15 } }}
+              className={`alert-card ${getSeverityClass(alert.severity)}`}
+            >
+              <div className="alert-meta">
+                <span>{alert.source_ip}</span>
+                <span style={{ fontWeight: 600 }}>Lvl {alert.severity}</span>
+              </div>
+              <div className="alert-desc">{alert.rule_description}</div>
+              <div className="alert-tags">
+                {alert.mitre_techniques?.map((t) => (
+                  <span key={t} className="tag">{t}</span>
+                ))}
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

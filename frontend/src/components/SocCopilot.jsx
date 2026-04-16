@@ -1,118 +1,158 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Send, Bot, User, Loader2 } from 'lucide-react';
-import axios from 'axios';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Send, Bot, User, Loader2, Maximize2, Minimize2 } from 'lucide-react';
+import apiClient, { parseError } from '../api/apiClient';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
-const SocCopilot = () => {
+const SocCopilot = ({ isExpanded, onToggleExpand }) => {
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'Hello! I am your AI SOC Copilot. How can I help you investigate today?' }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const chatEndRef = useRef(null);
+  const textareaRef = useRef(null);
 
-  const sessionId = "session-123"; // Mock session
+  const sessionId = 'session-123';
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-resize textarea: reset to auto first so shrinking works too
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [input, autoResize]);
+
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
     const userMsg = { role: 'user', content: input };
-    setMessages(prev => [...prev, userMsg]);
+    setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:8000/chat/', {
+      const response = await apiClient.post('/chat/', {
         session_id: sessionId,
         query: input
       });
-      
-      setMessages(prev => [...prev, { role: 'assistant', content: response.data.response }]);
-    } catch (error) {
-      setMessages(prev => [...prev, { role: 'assistant', content: 'Error: Could not reach the AI backend.' }]);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: response.data.response }
+      ]);
+    } catch (err) {
+      const detailedError = parseError(err);
+      setMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: `⚠️ ${detailedError}` }
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
+  const onKey = (e) => {
+    // Send on Enter; Shift+Enter inserts a newline
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
-    <div className="card copilot-section" style={{ padding: '1rem', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '1rem' }}>
-        <Bot size={20} color="var(--primary)" />
-        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>SOC Copilot</h2>
+    <div className="card copilot-card" style={{ height: '100%', transition: 'all 0.3s ease' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexShrink: 0 }}>
+        <Bot size={18} color="var(--primary)" />
+        <h2 className="section-title">SOC Copilot</h2>
+        
+        <button 
+          onClick={onToggleExpand}
+          title={isExpanded ? "Shrink Chat" : "Expand Chat"}
+          style={{
+            marginLeft: 'auto',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius-sm)',
+            width: '32px',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            transition: 'all 0.2s'
+          }}
+          className="expand-btn"
+        >
+          {isExpanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+        </button>
+
+        <span style={{
+          width: 8, height: 8,
+          borderRadius: '50%',
+          background: 'var(--success)',
+          boxShadow: '0 0 6px var(--success)'
+        }} />
       </div>
 
-      <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem', padding: '10px' }}>
+      {/* Messages */}
+      <div className="chat-messages">
         {messages.map((msg, i) => (
-          <div key={i} style={{ 
-            marginBottom: '1rem', 
-            textAlign: msg.role === 'user' ? 'right' : 'left',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-              {msg.role === 'assistant' ? <Bot size={14} /> : <User size={14} />}
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{msg.role}</span>
+          <div 
+            key={i} 
+            className={`chat-msg ${msg.role} ${msg.role === 'assistant' ? 'assistant-msg-container' : ''}`}
+          >
+            <div className="chat-role">
+              {msg.role === 'assistant' ? <Bot size={14} color="var(--primary)" /> : <User size={14} />}
+              <span style={{ fontWeight: 700, letterSpacing: '0.05em' }}>{msg.role === 'assistant' ? 'AI FORENSIC REPORT' : 'ANALYST'}</span>
             </div>
-            <div style={{ 
-              display: 'inline-block',
-              padding: '8px 12px',
-              borderRadius: '12px',
-              background: msg.role === 'user' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-              border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
-              fontSize: '0.9rem',
-              maxWidth: '85%',
-              lineHeight: '1.4'
-            }}>
-              {msg.content}
+            <div className={`chat-bubble ${msg.role}`}>
+              {msg.role === 'assistant' ? (
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+              ) : (
+                msg.content
+              )}
             </div>
           </div>
         ))}
         {loading && (
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-muted)' }}>
-            <Loader2 size={14} className="animate-spin" />
-            <span style={{ fontSize: '0.8rem' }}>AI thinking...</span>
+          <div className="chat-msg assistant assistant-msg-container">
+            <div className="chat-role">
+              <Bot size={14} color="var(--primary)" /> 
+              <span style={{ fontWeight: 700, letterSpacing: '0.05em' }}>AI ANALYZING...</span>
+            </div>
+            <div className="chat-bubble assistant" style={{ display: 'flex', alignItems: 'center', gap: 10, color: 'var(--text-muted)' }}>
+              <Loader2 size={16} className="animate-spin" />
+              <span style={{ fontSize: '0.9rem', fontStyle: 'italic' }}>Streaming forensic data...</span>
+            </div>
           </div>
         )}
         <div ref={chatEndRef} />
       </div>
 
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <input 
-          type="text" 
+      {/* Input */}
+      <div className="chat-input-row" style={{ alignItems: 'flex-end', marginTop: '16px' }}>
+        <textarea
+          ref={textareaRef}
+          className="chat-input"
           value={input}
+          rows={1}
           onChange={(e) => setInput(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          placeholder="Ask Copilot..."
-          style={{ 
-            flex: 1, 
-            background: 'rgba(0,0,0,0.2)', 
-            border: '1px solid var(--border)', 
-            borderRadius: '8px', 
-            padding: '8px 12px',
-            color: 'white',
-            outline: 'none'
-          }}
+          onKeyDown={onKey}
+          placeholder="Ask Copilot… (Shift+Enter for new line)"
+          style={{ resize: 'none', overflow: 'hidden', maxHeight: '160px', overflowY: 'auto' }}
         />
-        <button 
-          onClick={handleSend}
-          style={{ 
-            background: 'var(--primary)', 
-            border: 'none', 
-            borderRadius: '8px', 
-            padding: '8px', 
-            cursor: loading ? 'not-allowed' : 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-          disabled={loading}
-        >
-          <Send size={18} color="white" />
+        <button className="btn-send" onClick={handleSend} disabled={loading}>
+          <Send size={16} color="white" />
         </button>
       </div>
     </div>

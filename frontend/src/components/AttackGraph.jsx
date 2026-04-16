@@ -1,57 +1,173 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { Network } from 'lucide-react';
 
 const AttackGraph = ({ alerts }) => {
-  const data = useMemo(() => {
-    const nodes = [
-      { id: 'External Network', group: 1, val: 20 },
-      { id: 'Internal Core', group: 2, val: 25 },
-    ];
-    const links = [];
+  const containerRef = useRef(null);
+  const [dims, setDims] = useState({ width: 600, height: 400 });
 
-    // Map IP connections from alerts
-    const ips = new Set();
-    alerts.slice(0, 10).forEach(alert => {
-      if (!ips.has(alert.source_ip)) {
-        nodes.push({ id: alert.source_ip, group: 3, val: 12 });
-        ips.add(alert.source_ip);
+  // Measure container and update on resize
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDims({ width, height });
+        }
       }
-      links.push({ source: alert.source_ip, target: 'Internal Core' });
+    });
+
+    observer.observe(containerRef.current);
+    const { clientWidth, clientHeight } = containerRef.current;
+    if (clientWidth > 0 && clientHeight > 0) {
+      setDims({ width: clientWidth, height: clientHeight });
+    }
+
+    return () => observer.disconnect();
+  }, []);
+
+  const data = useMemo(() => {
+    const nodes = [];
+    const links = [];
+    
+    const ipMap = new Map();
+    const ipTechs = new Map();
+    const techMap = new Map();
+
+    const mapTCode = {
+      "T1110": "Brute Force",
+      "T1190": "Exploit Public-Facing App",
+      "T1059": "Command Execution",
+      "T1078": "Valid Account"
+    };
+
+    const getSevColor = (sev) => {
+      if (sev >= 12) return '#ef4444'; // Red (High)
+      if (sev >= 7) return '#f59e0b';  // Orange (Medium)
+      return '#10b981'; // Green (Low)
+    };
+
+    // Process chronically mapping techniques
+    [...alerts].reverse().forEach((alert) => {
+      const ip = alert.source_ip;
+      if (!ip) return;
+      
+      const sev = alert.severity || 1;
+
+      if (!ipMap.has(ip)) {
+        ipMap.set(ip, sev);
+        ipTechs.set(ip, []);
+      } else if (sev > ipMap.get(ip)) {
+        ipMap.set(ip, sev);
+      }
+
+      const techs = ipTechs.get(ip);
+      (alert.mitre_techniques || []).forEach(t => {
+        if (!techs.includes(t)) techs.push(t);
+        if (!techMap.has(t) || sev > techMap.get(t)) {
+            techMap.set(t, sev);
+        }
+      });
+    });
+
+    ipMap.forEach((maxSev, ip) => {
+      const ipNodeId = `IP: ${ip}`;
+      nodes.push({ id: ipNodeId, group: 'ip', val: 12, color: getSevColor(maxSev) });
+
+      const techs = ipTechs.get(ip);
+      let prevNode = ipNodeId;
+
+      techs.forEach(t => {
+         const tDesc = mapTCode[t] || "Unknown Technique";
+         const techId = `${t}: ${tDesc}`;
+         
+         if (!nodes.find(n => n.id === techId)) {
+            nodes.push({ 
+                id: techId, 
+                group: 'tech', 
+                val: 16, 
+                color: getSevColor(techMap.get(t)) 
+            });
+         }
+         
+         if (!links.find(l => l.source === prevNode && l.target === techId)) {
+             links.push({ source: prevNode, target: techId });
+         }
+         
+         prevNode = techId;
+      });
     });
 
     return { nodes, links };
   }, [alerts]);
 
+  const fgRef = useRef();
+
+  // Fine-tune forces when graph mounts or data changes
+  useEffect(() => {
+    if (!fgRef.current) return;
+    
+    // Increase repulsion between nodes
+    fgRef.current.d3Force('charge').strength(-400);
+    // Increase the distance of links to spread things out
+    fgRef.current.d3Force('link').distance(100);
+    // Force the engine to re-run with new parameters
+    fgRef.current.d3ReheatSimulation();
+  }, [data]);
+
   return (
-    <div className="card" style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: '15px', left: '15px', zIndex: 10, display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Network size={20} color="var(--primary)" />
-        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Attack Vector Graph</h2>
+    <div
+      className="card graph-card"
+      style={{ flex: 1, position: 'relative', overflow: 'hidden', minHeight: 400 }}
+    >
+      <div className="graph-label">
+        <Network size={18} color="var(--primary)" />
+        <h2 className="section-title">Attack Vector Graph</h2>
       </div>
-      
-      <ForceGraph2D
-        graphData={data}
-        nodeAutoColorBy="group"
-        nodeLabel="id"
-        backgroundColor="transparent"
-        linkColor={() => 'rgba(255,255,255,0.1)'}
-        nodeCanvasObject={(node, ctx, globalScale) => {
-          const label = node.id;
-          const fontSize = 12 / globalScale;
-          ctx.font = `${fontSize}px Sans-Serif`;
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillStyle = node.color;
-          ctx.beginPath(); 
-          ctx.arc(node.x, node.y, 5, 0, 2 * Math.PI, false); 
-          ctx.fill();
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-          ctx.fillText(label, node.x, node.y + 10);
-        }}
-        width={800}
-        height={500}
-      />
+
+      <div
+        ref={containerRef}
+        style={{ position: 'absolute', inset: 0 }}
+      >
+        <ForceGraph2D
+          ref={fgRef}
+          graphData={data}
+          backgroundColor="transparent"
+          width={dims.width}
+          height={dims.height}
+          linkColor={() => 'rgba(255,255,255,0.15)'}
+          linkWidth={1.5}
+          linkDirectionalArrowLength={4}
+          linkDirectionalArrowRelPos={1}
+          cooldownTicks={150}
+          d3AlphaDecay={0.01}
+          nodeCanvasObject={(node, ctx, globalScale) => {
+            const radius = node.val ? Math.sqrt(node.val) * 1.5 : 5;
+            
+            ctx.beginPath();
+            ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI, false);
+            ctx.fillStyle = node.color || '#6366f1';
+            ctx.fill();
+
+            // Label Formatting
+            const fontSize = Math.max(10, 14 / globalScale); // Slightly larger font
+            ctx.font = `600 ${fontSize}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            
+            // Draw a subtle background behind the text to enhance readability
+            const label = node.id;
+            const textWidth = ctx.measureText(label).width;
+            ctx.fillStyle = 'rgba(10, 10, 12, 0.85)';
+            ctx.fillRect(node.x - textWidth / 2 - 4, node.y + radius + 1, textWidth + 8, fontSize + 4);
+
+            ctx.fillStyle = node.color || 'rgba(226, 232, 240, 0.9)';
+            ctx.fillText(label, node.x, node.y + radius + 3);
+          }}
+        />
+      </div>
     </div>
   );
 };
