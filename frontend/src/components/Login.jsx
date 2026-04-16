@@ -5,7 +5,10 @@ import apiClient, { parseError } from '../api/apiClient';
 const Login = ({ onLoginSuccess }) => {
   const [isRegistering, setIsRegistering] = useState(false);
   const [username, setUsername] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -14,19 +17,28 @@ const Login = ({ onLoginSuccess }) => {
     setLoading(true);
     setError('');
 
+    if (isRegistering && password !== confirmPassword) {
+      setError("Passwords do not match");
+      setLoading(false);
+      return;
+    }
+
     const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
+    const payload = isRegistering 
+      ? { first_name: firstName, last_name: lastName, password }
+      : { username, password };
     
     try {
-      const response = await apiClient.post(endpoint, {
-        username,
-        password
-      });
+      const response = await apiClient.post(endpoint, payload);
 
       if (isRegistering) {
+        setUsername(firstName);
         setIsRegistering(false);
-        setError('Registration successful! Please login.');
+        setError('Registration successful! Please sign in.');
       } else {
         localStorage.setItem('soc_token', response.data.access_token);
+        localStorage.setItem('soc_first_name', response.data.first_name);
+        localStorage.setItem('soc_last_name', response.data.last_name);
         onLoginSuccess();
       }
     } catch (err) {
@@ -74,26 +86,72 @@ const Login = ({ onLoginSuccess }) => {
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.2rem' }}>
-          <div style={{ position: 'relative' }}>
-            <User style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} size={18} />
-            <input 
-              type="text" 
-              placeholder="Username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              style={{
-                width: '100%',
-                padding: '12px 12px 12px 40px',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                color: 'white',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
+          {isRegistering && (
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <User style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} size={18} />
+                <input 
+                  type="text" 
+                  placeholder="First Name"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px 12px 12px 40px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'white',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              <div style={{ position: 'relative', flex: 1 }}>
+                <input 
+                  type="text" 
+                  placeholder="Last Name"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '8px',
+                    color: 'white',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+            </div>
+          )}
+
+          {!isRegistering && (
+            <div style={{ position: 'relative' }}>
+              <User style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} size={18} />
+              <input 
+                type="text" 
+                placeholder="Username (First Name)"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 12px 12px 40px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          )}
 
           <div style={{ position: 'relative' }}>
             <Lock style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} size={18} />
@@ -116,9 +174,32 @@ const Login = ({ onLoginSuccess }) => {
             />
           </div>
 
+          {isRegistering && (
+            <div style={{ position: 'relative' }}>
+              <Lock style={{ position: 'absolute', left: '12px', top: '12px', color: 'var(--text-muted)' }} size={18} />
+              <input 
+                type="password" 
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 12px 12px 40px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  outline: 'none',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+          )}
+
           {error && (
             <div style={{ 
-              color: isRegistering && error.includes('successful') ? 'var(--success)' : 'var(--danger)', 
+              color: error.toLowerCase().includes('successful') ? 'var(--success)' : 'var(--danger)', 
               fontSize: '0.85rem', 
               textAlign: 'center',
               padding: '8px',
@@ -130,7 +211,7 @@ const Login = ({ onLoginSuccess }) => {
               justifyContent: 'center',
               gap: '8px'
             }}>
-              {!error.includes('successful') && <AlertCircle size={14} />}
+              {!error.toLowerCase().includes('successful') && <AlertCircle size={14} />}
               <span>{error}</span>
             </div>
           )}

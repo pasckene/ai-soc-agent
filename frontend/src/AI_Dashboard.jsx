@@ -60,6 +60,8 @@ const AIDashboard = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('soc_token');
+    localStorage.removeItem('soc_first_name');
+    localStorage.removeItem('soc_last_name');
     setIsAuthenticated(false);
   };
 
@@ -80,8 +82,14 @@ const AIDashboard = () => {
     return <Login onLoginSuccess={() => setIsAuthenticated(true)} />;
   }
 
-  const username = 'SOC Analyst';
-  const initials = username.split(' ').map((w) => w[0]).join('');
+  const rawFirst = localStorage.getItem('soc_first_name');
+  const rawLast = localStorage.getItem('soc_last_name');
+  
+  const userFirstName = (rawFirst && rawFirst !== 'null') ? rawFirst : 'SOC';
+  const userLastName = (rawLast && rawLast !== 'null') ? rawLast : 'Analyst';
+  
+  const fullName = `${userFirstName} ${userLastName}`;
+  const initials = `${userFirstName[0] || ''}${userLastName[0] || ''}`.toUpperCase();
 
   return (
     <>
@@ -139,7 +147,7 @@ const AIDashboard = () => {
             )}
 
             <div className="header-user-info">
-              <div className="username">{username}</div>
+              <div className="username">{fullName}</div>
               <button className="btn-signout" onClick={handleLogout}>
                 Sign Out
               </button>
