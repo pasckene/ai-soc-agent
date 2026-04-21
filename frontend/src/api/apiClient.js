@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Use relative URLs so all requests go through Vite's dev proxy -> backend
 // This avoids CORS issues and works on any host/IP
-const API_BASE_URL = '';
+const API_BASE_URL = '/api';
 const WS_BASE_URL = `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.host}`;
 
 const apiClient = axios.create({
@@ -54,6 +54,11 @@ export const parseError = (err) => {
   if (status >= 500) return "Internal Server Error. Security team has been notified.";
 
   return "An unexpected error occurred. Please try again later.";
+};
+
+
+export const clearAlerts = async (alertIds) => {
+  return apiClient.post('/alerts/clear', { alert_ids: alertIds });
 };
 
 export { API_BASE_URL, WS_BASE_URL };

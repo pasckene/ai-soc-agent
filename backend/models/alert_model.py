@@ -3,7 +3,7 @@ from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 class SOCAlert(BaseModel):
-    id: str
+    id: Optional[str] = None
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     rule_id: str
     rule_description: str
@@ -12,7 +12,7 @@ class SOCAlert(BaseModel):
     dest_ip: Optional[str] = None
     user_name: Optional[str] = None
     agent_name: str
-    agent_id: str
+    agent_id: Optional[str] = None   # External agents may omit this; defaults to "external"
     full_log: str
     mitre_techniques: List[str] = []
     
@@ -21,6 +21,7 @@ class SOCAlert(BaseModel):
     ai_priority: Optional[int] = None # 1-10
     ai_explanation: Optional[str] = None
     recommended_actions: List[str] = []
+    cleared: bool = False
 
 class ChatMessage(BaseModel):
     role: str # 'user' or 'assistant'

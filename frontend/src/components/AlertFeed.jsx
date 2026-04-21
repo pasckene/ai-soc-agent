@@ -15,7 +15,7 @@ const AlertFeed = () => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const response = await apiClient.get('/alerts/');
+        const response = await apiClient.get('/alerts');
         setAlerts(response.data);
       } catch (err) {
         console.error('Failed to fetch alert history', err);

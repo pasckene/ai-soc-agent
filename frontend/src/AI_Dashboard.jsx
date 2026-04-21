@@ -12,7 +12,7 @@ import AlertsListPage from './components/AlertsListPage';
 import SettingsDialog from './components/SettingsDialog';
 import WarRoomPage from './components/WarRoomPage';
 import Login from './components/Login';
-import apiClient, { WS_BASE_URL } from './api/apiClient';
+import apiClient, { WS_BASE_URL, clearAlerts } from './api/apiClient';
 import './styles/App.css';
 
 const DashboardHome = ({ alerts, riskScore, highSeverityCount, getRiskColor }) => (
@@ -80,25 +80,29 @@ const AIDashboard = () => {
     if (!isAuthenticated) return;
 
     const fetchHistory = async () => {
-      try {
-        const res = await apiClient.get('/alerts/');
-        setAlerts(res.data);
-      } catch (err) {
-        console.error('Failed to fetch alert history', err);
-      }
+    try {
+    const res = await apiClient.get('/alerts');
+    // Filter alerts to only include those from external agents
+    const externalAlerts = res.data.filter(alert => alert.agent_id === "external");
+    setAlerts(externalAlerts);
+    } catch (err) {
+    console.error('Failed to fetch alert history', err);
+    }
     };
     fetchHistory();
 
     const token = localStorage.getItem('soc_token');
     const ws = new WebSocket(`${WS_BASE_URL}/ws/alerts${token ? `?token=${token}` : ''}`);
     ws.onmessage = (event) => {
-      const newAlert = JSON.parse(event.data);
-      setAlerts((prev) => {
-        if (prev.find((a) => a.id === newAlert.id)) return prev;
-        return [newAlert, ...prev].slice(0, 80);
-      });
-    };
-    return () => ws.close();
+    const newAlert = JSON.parse(event.data);
+    // Only add external alerts
+    if (newAlert.agent_id === "external") {
+    setAlerts((prev) => {
+      if (prev.find((a) => a.id === newAlert.id)) return prev;
+      return [newAlert, ...prev].slice(0, 80);
+    });
+    }
+    };    return () => ws.close();
   }, [isAuthenticated]);
 
   const handleLogout = () => {
@@ -122,6 +126,16 @@ const AIDashboard = () => {
     if (score >= 70) return 'var(--danger)';
     if (score >= 30) return 'var(--warning)';
     return 'var(--success)';
+  };
+
+  const handleClearAlert = async (alertId) => {
+    try {
+      await clearAlerts([alertId]);
+      setAlerts(prevAlerts => prevAlerts.filter(alert => alert.id !== alertId));
+    } catch (error) {
+      console.error('Failed to clear alert:', error);
+      // Optionally show an error message to the user
+    }
   };
 
   const rawFirst = localStorage.getItem('soc_first_name');
@@ -209,7 +223,7 @@ const AIDashboard = () => {
               getRiskColor={getRiskColor} 
             />
           } />
-          <Route path="/alerts" element={<AlertsListPage alerts={alerts} />} />
+          <Route path="/alerts" element={<AlertsListPage alerts={alerts} onClearAlert={handleClearAlert} />} />
           <Route path="/war-room" element={<WarRoomPage alerts={alerts} />} />
         </Routes>
         {location.pathname !== '/war-room' && (

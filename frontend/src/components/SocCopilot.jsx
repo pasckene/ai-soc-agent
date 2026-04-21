@@ -40,7 +40,7 @@ const SocCopilot = ({ isExpanded, onToggleExpand }) => {
     setLoading(true);
 
     try {
-      const response = await apiClient.post('/chat/', {
+      const response = await apiClient.post('/chat', {
         session_id: sessionId,
         query: input
       });

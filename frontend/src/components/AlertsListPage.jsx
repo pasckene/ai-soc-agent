@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import apiClient from '../api/apiClient';
 
-const AlertsListPage = ({ alerts }) => {
+const AlertsListPage = ({ alerts, onClearAlert }) => {
   const [actionStatuses, setActionStatuses] = useState({});
 
   const handleRemediate = async (alertId, action, target) => {
@@ -137,6 +137,12 @@ const AlertsListPage = ({ alerts }) => {
                         onClick={() => handleRemediate(alert.id, 'Block IP', alert.source_ip)}
                       >
                         <ShieldBan size={14} /> Block IP
+                      </button>
+                      <button 
+                        className="blog-action-btn tertiary-action"
+                        onClick={() => onClearAlert(alert.id)}
+                      >
+                        <CheckCircle2 size={14} /> Clear Alert
                       </button>
                     </>
                   )}

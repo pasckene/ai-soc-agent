@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 from backend.core.ai_engine import ai_engine
 from backend.core.soc_memory import soc_memory
 from backend.models.alert_model import ChatMessage
-from backend.auth.auth import get_current_user
+from backend.auth.jwt_handler import get_current_user
 
 router = APIRouter(prefix="/chat", tags=["AI Copilot"])
 
@@ -22,7 +22,7 @@ class ChatResponse(BaseModel):
     response: str
     usage: Optional[TokenUsage] = None
 
-@router.post("/", response_model=ChatResponse)
+@router.post("", response_model=ChatResponse)
 async def chat_with_copilot(request: ChatRequest, current_user: dict = Depends(get_current_user)):
     session = soc_memory.get_or_create_session(request.session_id)
 

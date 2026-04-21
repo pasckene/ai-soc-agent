@@ -41,6 +41,7 @@ class DBAlert(Base):
     ai_explanation: Mapped[str] = mapped_column(Text, nullable=True)
     recommended_actions: Mapped[list] = mapped_column(JSON, default=[])
     mitre_techniques: Mapped[list] = mapped_column(JSON, default=[])
+    cleared: Mapped[bool] = mapped_column(Integer, default=False) # SQLite uses 0/1 for bool
 
 async def init_db():
     async with engine.begin() as conn:
@@ -69,7 +70,8 @@ async def save_alert(alert_data: SOCAlert):
                 ai_priority=alert_data.ai_priority,
                 ai_explanation=alert_data.ai_explanation,
                 recommended_actions=alert_data.recommended_actions,
-                mitre_techniques=alert_data.mitre_techniques
+                mitre_techniques=alert_data.mitre_techniques,
+                cleared=alert_data.cleared
             )
             db.add(db_alert)
             await db.commit()

@@ -23,6 +23,10 @@ RedShield AI is a next-generation, AI-native Security Operations Center (SOC) ag
 ### 5. 📔 Forensic Activity Blog
 - **Long-form Investigation**: A professional, article-style feed of all security events, complete with detailed forensic metadata, MITRE ATT&CK mappings, and source IP analysis.
 
+### 6. 🔌 External Agent Integration
+- **Webhook Ingestion**: External agents (Wazuh, EDR, Cloud Sensors) can push alerts directly to the platform via a REST API at `/api/alerts`.
+- **AI Enrichment**: Every externally ingested alert undergoes the same AI triage and MITRE mapping as internal simulations.
+
 ## 🛠️ Technical Architecture
 
 ### **Backend (Python)**

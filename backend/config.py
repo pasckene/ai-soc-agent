@@ -4,6 +4,8 @@ from typing import Optional
 class Settings(BaseSettings):
     GOOGLE_API_KEY: Optional[str] = None
     GROQ_API_KEY: Optional[str] = None
+
+
     
     # AI Config
     DEFAULT_MODEL: str = "openai/gpt-oss-120b"
