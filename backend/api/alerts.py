@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Security, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -11,6 +11,8 @@ from backend.realtime.manager import manager
 from pydantic import BaseModel
 from typing import List, Dict
 import uuid
+from datetime import datetime, timezone
+from json import JSONDecodeError
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -72,53 +74,39 @@ async def clear_alerts(
     return {"status": "success", "message": f"Successfully cleared {len(req.alert_ids)} alerts."}
 
 
-@router.post("", response_model=Dict[str, str], status_code=status.HTTP_201_CREATED)
-async def ingest_external_alert(
-    alert: SOCAlert,
-):
-    """
-    Ingest an alert from an external agent (Wazuh, EDR, custom SIEM, etc.).
-
-    Minimal required payload
-    ------------------------
-    {
-        "rule_id":          "5710",
-        "rule_description": "SSH brute-force detected",
-        "severity":         12,
-        "source_ip":        "203.0.113.42",
-        "agent_name":       "prod-web-01",
-        "full_log":         "<raw log line>"
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def ingest_external_alert(request: Request):
+    raw_data = await request.json()
+    
+    # Map fields and handle the missing timestamp
+    mapped_data = {
+        "rule_id": str(raw_data.get("rule", {}).get("id")),
+        "rule_description": raw_data.get("rule", {}).get("description"),
+        "severity": raw_data.get("rule", {}).get("level"),
+        "agent_name": raw_data.get("agent", {}).get("name"),
+        "full_log": raw_data.get("full_log", ""),
+        
+        # FIX: Use Wazuh timestamp if it exists, otherwise use current time
+        "timestamp": raw_data.get("timestamp") or datetime.now(timezone.utc),
+        "id": str(uuid.uuid4()), # Generate UUID here as well
+        "agent_id": raw_data.get("agent", {}).get("id", "external"),
+        "source_ip": raw_data.get("data", {}).get("srcip", "0.0.0.0"),
     }
 
-    Optional fields
-    ---------------
-    id, timestamp, dest_ip, user_name, agent_id, mitre_techniques
+    try:
+        alert = SOCAlert(**mapped_data)
+    except Exception as e:
+        print(f"[!] Validation Error: {e}")
+        raise HTTPException(status_code=422, detail=str(e))
 
-    Pipeline
-    --------
-    1. Assign a UUID if no id was provided.
-    2. Default agent_id to "external" if omitted.
-    3. Enrich with AI triage (analysis, priority, explanation, actions).
-    4. Persist to the database.
-    5. Broadcast to all connected UI clients via WebSocket.
-    """
-    # 1. Identifiers
-    if not alert.id:
-        alert.id = str(uuid.uuid4())
-    if not alert.agent_id:
-        alert.agent_id = "external"
-
-    # 2. AI triage
+    # ... proceed to AI triage and broadcast ...
+    # 4. AI Triage & Real-time Broadcast
     analysis = await ai_engine.analyze_alert(alert)
     alert.ai_analysis = analysis.get("analysis")
-    alert.ai_priority = analysis.get("priority")
+    alert.ai_priority = analysis.get("priority") # Re-adding these based on previous logic
     alert.ai_explanation = analysis.get("explanation")
     alert.recommended_actions = analysis.get("recommended_actions", [])
-
-    # 3. Persist
+    
     await save_alert(alert)
-
-    # 4. Push to UI
     await manager.broadcast(alert.model_dump_json())
-
     return {"status": "success", "alert_id": alert.id}
